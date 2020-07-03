@@ -65,35 +65,52 @@ const listWithManyBlogs = [
     __v: 0,
   },
 ];
-test("dummy returs one", () => {
+test("Dummy returs one", () => {
   const result = listHelper.dummy(listWithZeroBlogs);
   expect(result).toBe(1);
 });
 
-describe("total likes", () => {
-  test("of empty list is zero", () => {
+describe("Total likes", () => {
+  test("Of empty list is zero", () => {
     const result = listHelper.totalLikes(listWithZeroBlogs);
     expect(result).toBe(0);
   });
-  test("when list has one blog equals the likes of that", () => {
+  test("When list has one blog equals the likes of that", () => {
     const result = listHelper.totalLikes(listWithOneBlog);
     expect(result).toBe(5);
   });
-  test("a bigger list is calculated right", () => {
+  test("A bigger list is calculated right", () => {
     const result = listHelper.totalLikes(listWithManyBlogs);
     expect(result).toBe(36);
   });
 });
 
-describe("test for favourite blog", () => {
-  test("favourite blog", () => {
+describe("Test for favourite blog", () => {
+  test("Favourite blog", () => {
     const result = listHelper.favoriteBlog(listWithManyBlogs);
-    console.log(result);
+    // console.log(result);
     const expected = {
       title: "Canonical string reduction",
       author: "Edsger W. Dijkstra",
       likes: 12,
     };
     expect(result).toEqual(expected);
+  });
+});
+
+describe("Test for most blogs and most likes", () => {
+  test("Author with most blogs", () => {
+    const result = listHelper.mostBlogs(listWithManyBlogs);
+    expect(result).toEqual({
+      author: "Robert C. Martin",
+      blogs: 3,
+    });
+  });
+  test("Author with most likes", () => {
+    const result = listHelper.mostLikes(listWithManyBlogs);
+    expect(result).toEqual({
+      author: "Edsger W. Dijkstra",
+      likes: 17,
+    });
   });
 });
