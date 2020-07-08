@@ -1,12 +1,17 @@
 const blogsRouter = require("express").Router();
 const Blog = require("../models/blog");
 const logger = require("../utils/logger");
+const jwt = require("jsonwebtoken");
+const config = require("../utils/config");
 const User = require("../models/user");
-const user = require("../models/user");
+const blog = require("../models/blog");
 
 blogsRouter.get("/", async (req, res, next) => {
   try {
-    const allBlogs = await Blog.find({}).populate("user");
+    const allBlogs = await Blog.find({}).populate("user", {
+      username: 1,
+      name: 1,
+    });
     res.json(allBlogs);
   } catch (error) {
     next(error);
@@ -15,11 +20,19 @@ blogsRouter.get("/", async (req, res, next) => {
 
 blogsRouter.post("/", async (req, res, next) => {
   try {
-    const randomUser = await User.findOne({});
-    const blog = new Blog({ ...req.body, user: randomUser.id });
+    const token = req.token;
+    const payload = jwt.verify(token, config.SECRET);
+    if (!token || !payload.id) {
+      return res.status(401).json({ error: "token missing or invalid token" });
+    }
+    const user = await User.findOne({ _id: payload.id });
+    const blog = new Blog({ ...req.body, user: payload.id });
     const newBlog = await blog.save();
-    randomUser.blogs = randomUser.blogs.concat(newBlog.id);
-    await randomUser.save();
+
+    user.blogs = user.blogs.concat(newBlog.id);
+
+    await user.save();
+
     res.status(201).json(newBlog);
   } catch (error) {
     next(error);
@@ -28,7 +41,20 @@ blogsRouter.post("/", async (req, res, next) => {
 
 blogsRouter.delete("/:id", async (req, res, next) => {
   try {
+    const token = req.token;
+    const payload = jwt.verify(token, config.SECRET);
+    if (!token || !payload.id) {
+      return res.status(401).json({ error: "token missing or invalid token" });
+    }
     const id = req.params.id;
+    const blogToDelete = await Blog.findOne({ _id: id });
+
+    if (blogToDelete.user.toString() !== payload.id.toString()) {
+      res
+        .status(401)
+        .json({ error: "you are not allowed to delete this blog" });
+    }
+
     await Blog.findByIdAndRemove(id);
     res.status(204).end();
   } catch (error) {

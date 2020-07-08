@@ -11,14 +11,25 @@ const api = supertest(app);
 describe("Blog api test", () => {
   beforeEach(async () => {
     await Blog.deleteMany({});
+    await User.deleteMany({});
 
-    let newBlog = new Blog(helper.initialBlogs[0]);
-    await newBlog.save();
+    const user = {
+      username: "admin",
+      name: "admin",
+      password: "admin",
+    };
 
-    newBlog = Blog(helper.initialBlogs[1]);
-    await newBlog.save();
-    newBlog = Blog(helper.initialBlogs[2]);
-    await newBlog.save();
+    const response = await api
+      .post("/api/users")
+      .send(user)
+      .expect(200)
+      .expect("Content-Type", /application\/json/);
+
+    const blogObject = helper.initialBlogs.map(
+      (blog) => new Blog({ ...blog, user: response.body.id })
+    );
+    const promiseArray = blogObject.map((blog) => blog.save());
+    await Promise.all(promiseArray);
   });
 
   test("Returns correct amount of blog post in JSON", async () => {
@@ -32,6 +43,11 @@ describe("Blog api test", () => {
   });
 
   test("Blog creates succesfully", async () => {
+    const login = await api
+      .post("/api/login")
+      .send({ username: "admin", password: "admin" })
+      .expect(200);
+
     const newBlog = new Blog({
       title: "Type wars",
       author: "Robert C. Martin",
@@ -42,6 +58,7 @@ describe("Blog api test", () => {
     await api
       .post("/api/blogs")
       .send(newBlog)
+      .set("Authorization", `Bearer ${login.body.token}`)
       .expect(201)
       .expect("Content-Type", /application\/json/);
 
@@ -53,6 +70,11 @@ describe("Blog api test", () => {
   });
 
   test("default value of likes equals 0", async () => {
+    const login = await api
+      .post("/api/login")
+      .send({ username: "admin", password: "admin" })
+      .expect(200);
+
     const newBlog = new Blog({
       title: "TDD harms architecture",
       author: "Robert C. Martin",
@@ -63,6 +85,7 @@ describe("Blog api test", () => {
     await api
       .post("/api/blogs")
       .send(newBlog)
+      .set("Authorization", `Bearer ${login.body.token}`)
       .expect(201)
       .expect("Content-Type", /application\/json/);
 
@@ -72,18 +95,35 @@ describe("Blog api test", () => {
   });
 
   test("if title or url are missing return 400", async () => {
+    const login = await api
+      .post("/api/login")
+      .send({ username: "admin", password: "admin" })
+      .expect(200);
+
     const newBlog = new Blog({
       author: "Robert C. Martin",
       likes: 10,
     });
-    await api.post("/api/blogs").send(newBlog).expect(400);
+    await api
+      .post("/api/blogs")
+      .send(newBlog)
+      .set("Authorization", `Bearer ${login.body.token}`)
+      .expect(400);
   });
 
   test("deleted blog deletes successfully and returns 204", async () => {
+    const login = await api
+      .post("/api/login")
+      .send({ username: "admin", password: "admin" })
+      .expect(200);
+
     const blogsAtStart = await helper.allBlogs();
     const blogToDelete = blogsAtStart[0];
 
-    await api.delete(`/api/blogs/${blogToDelete.id}`).expect(204);
+    await api
+      .delete(`/api/blogs/${blogToDelete.id}`)
+      .set("Authorization", `Bearer ${login.body.token}`)
+      .expect(204);
 
     const blogsAtEnd = await helper.allBlogs();
 

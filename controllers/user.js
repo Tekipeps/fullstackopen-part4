@@ -18,6 +18,7 @@ userRouter.post("/", async (req, res, next) => {
     if (body.username === undefined || body.password === undefined) {
       return res
         .status(400)
+
         .json({ error: "Username or Password cannot be empty" });
     }
     if (body.username.length < 3 || body.password.length < 3) {
@@ -26,8 +27,7 @@ userRouter.post("/", async (req, res, next) => {
         .json({ error: "Username and Password must be at least 3 characters" });
     }
 
-    const existingUser = await User.find({ username: body.username });
-
+    const existingUser = await User.findOne({ username: body.username });
     if (existingUser) {
       return res
         .status(400)
