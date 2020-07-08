@@ -1,103 +1,154 @@
 const mongoose = require("mongoose");
+const bcrypt = require("bcrypt");
 const supertest = require("supertest");
 const app = require("../app");
 const Blog = require("../models/blog");
+const User = require("../models/user");
 const helper = require("./test_helper");
 
 const api = supertest(app);
 
-beforeEach(async () => {
-  await Blog.deleteMany({});
+describe("Blog api test", () => {
+  beforeEach(async () => {
+    await Blog.deleteMany({});
 
-  let newBlog = new Blog(helper.initialBlogs[0]);
-  await newBlog.save();
+    let newBlog = new Blog(helper.initialBlogs[0]);
+    await newBlog.save();
 
-  newBlog = Blog(helper.initialBlogs[1]);
-  await newBlog.save();
-  newBlog = Blog(helper.initialBlogs[2]);
-  await newBlog.save();
-});
-
-test("Returns correct amount of blog post in JSON", async () => {
-  const response = await api.get("/api/blogs");
-  expect(response.body).toHaveLength(helper.initialBlogs.length);
-});
-
-test("Verifies the uid is id not _id", async () => {
-  const response = await api.get("/api/blogs");
-  expect(response.body[0].id).toBeDefined();
-});
-
-test("Blog creates succesfully", async () => {
-  const newBlog = new Blog({
-    title: "Type wars",
-    author: "Robert C. Martin",
-    url: "http://blog.cleancoder.com/uncle-bob/2016/05/01/TypeWars.html",
-    likes: 2,
+    newBlog = Blog(helper.initialBlogs[1]);
+    await newBlog.save();
+    newBlog = Blog(helper.initialBlogs[2]);
+    await newBlog.save();
   });
 
-  await api
-    .post("/api/blogs")
-    .send(newBlog)
-    .expect(201)
-    .expect("Content-Type", /application\/json/);
-
-  const blogsAtEnd = await helper.allBlogs();
-  expect(blogsAtEnd).toHaveLength(helper.initialBlogs.length + 1);
-
-  const titles = blogsAtEnd.map((b) => b.title);
-  expect(titles).toContain("Type wars");
-});
-
-test("default value of likes equals 0", async () => {
-  const newBlog = new Blog({
-    title: "TDD harms architecture",
-    author: "Robert C. Martin",
-    url:
-      "http://blog.cleancoder.com/uncle-bob/2017/03/03/TDD-Harms-Architecture.html",
+  test("Returns correct amount of blog post in JSON", async () => {
+    const response = await api.get("/api/blogs");
+    expect(response.body).toHaveLength(helper.initialBlogs.length);
   });
 
-  await api
-    .post("/api/blogs")
-    .send(newBlog)
-    .expect(201)
-    .expect("Content-Type", /application\/json/);
-
-  const blogsAtEnd = await helper.allBlogs();
-  const likes = blogsAtEnd.map((b) => b.likes);
-  expect(likes).toContain(0);
-});
-
-test("if title or url are missing return 400", async () => {
-  const newBlog = new Blog({
-    author: "Robert C. Martin",
-    likes: 10,
+  test("Verifies the uid is id not _id", async () => {
+    const response = await api.get("/api/blogs");
+    expect(response.body[0].id).toBeDefined();
   });
-  await api.post("/api/blogs").send(newBlog).expect(400);
+
+  test("Blog creates succesfully", async () => {
+    const newBlog = new Blog({
+      title: "Type wars",
+      author: "Robert C. Martin",
+      url: "http://blog.cleancoder.com/uncle-bob/2016/05/01/TypeWars.html",
+      likes: 2,
+    });
+
+    await api
+      .post("/api/blogs")
+      .send(newBlog)
+      .expect(201)
+      .expect("Content-Type", /application\/json/);
+
+    const blogsAtEnd = await helper.allBlogs();
+    expect(blogsAtEnd).toHaveLength(helper.initialBlogs.length + 1);
+
+    const titles = blogsAtEnd.map((b) => b.title);
+    expect(titles).toContain("Type wars");
+  });
+
+  test("default value of likes equals 0", async () => {
+    const newBlog = new Blog({
+      title: "TDD harms architecture",
+      author: "Robert C. Martin",
+      url:
+        "http://blog.cleancoder.com/uncle-bob/2017/03/03/TDD-Harms-Architecture.html",
+    });
+
+    await api
+      .post("/api/blogs")
+      .send(newBlog)
+      .expect(201)
+      .expect("Content-Type", /application\/json/);
+
+    const blogsAtEnd = await helper.allBlogs();
+    const likes = blogsAtEnd.map((b) => b.likes);
+    expect(likes).toContain(0);
+  });
+
+  test("if title or url are missing return 400", async () => {
+    const newBlog = new Blog({
+      author: "Robert C. Martin",
+      likes: 10,
+    });
+    await api.post("/api/blogs").send(newBlog).expect(400);
+  });
+
+  test("deleted blog deletes successfully and returns 204", async () => {
+    const blogsAtStart = await helper.allBlogs();
+    const blogToDelete = blogsAtStart[0];
+
+    await api.delete(`/api/blogs/${blogToDelete.id}`).expect(204);
+
+    const blogsAtEnd = await helper.allBlogs();
+
+    expect(blogsAtEnd).toHaveLength(blogsAtStart.length - 1);
+  });
+
+  test("updated blog updates successfully and returns 200", async () => {
+    const blogsAtStart = await helper.allBlogs();
+    const blogToUpdate = blogsAtStart[0];
+
+    const updatedBlog = await api
+      .put(`/api/blogs/${blogToUpdate.id}`, {
+        likes: 50,
+      })
+      .expect(200);
+
+    expect(blogToUpdate.likes).not.toEqual(updatedBlog.likes);
+  });
 });
 
-test("deleted blog deletes successfully and returns 204", async () => {
-  const blogsAtStart = await helper.allBlogs();
-  const blogToDelete = blogsAtStart[0];
+describe("User api test", () => {
+  beforeEach(async () => {
+    await User.deleteMany({});
+    const passwordHash = await bcrypt.hash("password", 10);
+    const user = new User({ username: "root", passwordHash });
+    await user.save();
+  });
 
-  await api.delete(`/api/blogs/${blogToDelete.id}`).expect(204);
+  test("Invalid users are not created", async () => {
+    const userWithNoUsername = {
+      password: "test123",
+    };
+    await api.post("/api/users").send(userWithNoUsername).expect(400);
+    expect((await helper.allUsers()).length).toEqual(1);
 
-  const blogsAtEnd = await helper.allBlogs();
+    const userWithNoPassword = {
+      username: "test",
+    };
+    await api.post("/api/users").send(userWithNoPassword).expect(400);
+    expect((await helper.allUsers()).length).toEqual(1);
 
-  expect(blogsAtEnd).toHaveLength(blogsAtStart.length - 1);
-});
+    const userWithShortUsername = {
+      username: "to",
+      password: "test123",
+    };
+    await api.post("/api/users").send(userWithShortUsername).expect(400);
+    expect((await helper.allUsers()).length).toEqual(1);
 
-test("updated blog updates successfully and returns 200", async () => {
-  const blogsAtStart = await helper.allBlogs();
-  const blogToUpdate = blogsAtStart[0];
+    const userWithShortPassword = {
+      username: "test",
+      password: "t1",
+    };
+    await api.post("/api/users").send(userWithShortPassword).expect(400);
+    expect((await helper.allUsers()).length).toEqual(1);
+  });
 
-  const updatedBlog = await api
-    .put(`/api/blogs/${blogToUpdate.id}`, {
-      likes: 50,
-    })
-    .expect(200);
+  test("Invalid user operation is not successful", async () => {
+    const existingUser = {
+      username: "root",
+      password: "password",
+    };
 
-  expect(blogToUpdate.likes).not.toEqual(updatedBlog.likes);
+    await api.post("/api/users").send(existingUser).expect(400);
+    expect((await helper.allUsers()).length).toEqual(1);
+  });
 });
 
 afterAll(() => {
