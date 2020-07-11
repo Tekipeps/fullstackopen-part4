@@ -77,7 +77,7 @@ describe("Blog api test", () => {
 
     const newBlog = new Blog({
       title: "TDD harms architecture",
-      author: "Robert C. Martin",
+      author: "test",
       url:
         "http://blog.cleancoder.com/uncle-bob/2017/03/03/TDD-Harms-Architecture.html",
     });
@@ -90,8 +90,8 @@ describe("Blog api test", () => {
       .expect("Content-Type", /application\/json/);
 
     const blogsAtEnd = await helper.allBlogs();
-    const likes = blogsAtEnd.map((b) => b.likes);
-    expect(likes).toContain(0);
+    const blog = blogsAtEnd.filter((b) => b.author === "test");
+    expect(blog[0].likes).toBeDefined();
   });
 
   test("if title or url are missing return 400", async () => {
