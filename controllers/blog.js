@@ -27,11 +27,17 @@ blogsRouter.post('/', async (req, res, next) => {
     const user = await User.findOne({ _id: payload.id })
     const blog = new Blog({ ...req.body, user: payload.id })
     const newBlog = await blog.save()
+    const populatedBlog = await newBlog
+      .populate('user', {
+        username: 1,
+        name: 1,
+      })
+      .execPopulate()
 
-    user.blogs = user.blogs.concat(newBlog.id)
+    user.blogs = user.blogs.concat(populatedBlog.id)
     await user.save()
 
-    res.status(201).json(newBlog)
+    res.status(201).json(populatedBlog)
   } catch (error) {
     next(error)
   }
@@ -67,7 +73,13 @@ blogsRouter.put('/:id', async (req, res, next) => {
       new: true,
       omitUndefined: true,
     })
-    res.json(updatedBlog)
+    const populatedBlog = await updatedBlog
+      .populate('user', {
+        username: 1,
+        name: 1,
+      })
+      .execPopulate()
+    res.json(populatedBlog)
   } catch (error) {
     next(error)
   }
